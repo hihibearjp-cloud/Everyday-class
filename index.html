@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>教師課堂表現登記系統</title>
+    
+    <!-- 引入 Tailwind CSS (負責畫面美化排版) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 React 核心庫 (負責互動邏輯) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel (讓瀏覽器能直接看懂 React JSX 語法) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 客製化滾動條樣式 -->
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: #9ca3af; }
+    </style>
+</head>
+<body class="bg-[#F9F9F6] selection:bg-green-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- 內建 SVG 圖示元件 (無須外部依賴，確保單機可運行) ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const icons = {
+                "pen-tool": <><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></>,
+                "history": <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></>,
+                "download": <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+                "x": <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+                "check-circle-2": <><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>,
+                "trash-2": <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>,
+                "settings": <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>,
+                "users": <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+                "plus": <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+                "chevron-left": <><polyline points="15 18 9 12 15 6"/></>,
+                "thumbs-up": <><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></>,
+                "thumbs-down": <><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></>,
+                "save": <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>,
+                "upload": <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
+                "search": <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+                "pencil": <><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></>,
+                "check": <><polyline points="20 6 9 17 4 12"/></>,
+                "user-x": <><path d="M16 21v-2a4 4 0 0 0-4-4H5c-1.1 0-2 .9-2 2v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></>,
+                "user-check": <><path d="M16 21v-2a4 4 0 0 0-4-4H5c-1.1 0-2 .9-2 2v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></>,
+                "alert-triangle": <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        const DEFAULT_GROUPS = [
+            { id: 'g1', name: '國三' },
+            { id: 'g2', name: '國一' }
+        ];
+
+        const DEFAULT_CLASSES = {
+            '901': [
+                { id: '1', name: '王小明' }, { id: '2', name: '陳小華' },
+                { id: '3', name: '李大仁' }, { id: '4', name: '張小芬' },
+                { id: '5', name: '林美麗' }
+            ]
+        };
+
+        const DEFAULT_CLASS_GROUPS = { '901': 'g1' };
+
+        const DEFAULT_TAGS = {
+            positive: [
+                { id: 'p1', label: '上課發言', value: 1 },
+                { id: 'p2', label: '分組合作', value: 2 },
+                { id: 'p3', label: '熱心服務', value: 1 }
+            ],
+            negative: [
+                { id: 'n1', label: '未交作業', value: -1 },
+                { id: 'n2', label: '上課聊天', value: -1 },
+                { id: 'n3', label: '遲到', value: -1 }
+            ]
+        };
+
+        function App() {
+            // --- 狀態管理 ---
+            const [view, setView] = useState('main');
+            
+            // 核心資料
+            const [groups, setGroups] = useState(DEFAULT_GROUPS);
+            const [classes, setClasses] = useState(DEFAULT_CLASSES);
+            const [classGroups, setClassGroups] = useState(DEFAULT_CLASS_GROUPS);
+            const [tags, setTags] = useState(DEFAULT_TAGS);
+            const [records, setRecords] = useState({});
+            const [leaveStatus, setLeaveStatus] = useState({});
+            
+            // UI 狀態
+            const [activeGroupId, setActiveGroupId] = useState('g1');
+            const [selectedClass, setSelectedClass] = useState('');
+            const [searchKeyword, setSearchKeyword] = useState('');
+            const [toast, setToast] = useState(null);
+            
+            // Modal 狀態
+            const [modal, setModal] = useState({ isOpen: false, type: null, student: null });
+            const [tempGrade, setTempGrade] = useState('');
+            const [gradeTitle, setGradeTitle] = useState('平時測驗');
+            
+            // 後台設定狀態
+            const [newGroupName, setNewGroupName] = useState('');
+            const [editClass, setEditClass] = useState('');
+            const [newClassGroup, setNewClassGroup] = useState('g1');
+            const [newStudent, setNewStudent] = useState({ id: '', name: '' });
+            const [newTag, setNewTag] = useState({ label: '', value: 1, type: 'positive' });
+            
+            // 標籤編輯狀態
+            const [editingTagId, setEditingTagId] = useState(null);
+            const [editTagInput, setEditTagInput] = useState({ label: '', value: 1 });
+            
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                try {
+                    const savedGroups = localStorage.getItem('teacherApp_groups');
+                    const savedClasses = localStorage.getItem('teacherApp_classes');
+                    const savedClassGroups = localStorage.getItem('teacherApp_classGroups');
+                    const savedTags = localStorage.getItem('teacherApp_tags');
+                    const savedRecords = localStorage.getItem('teacherApp_records');
+                    const savedLeave = localStorage.getItem('teacherApp_leave');
+                    
+                    let loadedGroups = DEFAULT_GROUPS;
+                    if (savedGroups) {
+                        loadedGroups = JSON.parse(savedGroups);
+                        setGroups(loadedGroups);
+                        if (loadedGroups.length > 0) setActiveGroupId(loadedGroups[0].id);
+                    }
+                    
+                    if (savedClasses) setClasses(JSON.parse(savedClasses));
+                    if (savedClassGroups) setClassGroups(JSON.parse(savedClassGroups));
+                    if (savedTags) setTags(JSON.parse(savedTags));
+                    if (savedRecords) setRecords(JSON.parse(savedRecords));
+                    if (savedLeave) setLeaveStatus(JSON.parse(savedLeave));
+                } catch (e) {
+                    console.error("LocalStorage 讀取失敗", e);
+                }
+            }, []);
+
+            useEffect(() => {
+                const classesInGroup = Object.keys(classes).filter(cls => classGroups[cls] === activeGroupId);
+                if (classesInGroup.length > 0) {
+                    if (!classesInGroup.includes(selectedClass)) {
+                        setSelectedClass(classesInGroup[0]);
+                    }
+                } else {
+                    setSelectedClass('');
+                }
+            }, [activeGroupId, classes, classGroups]);
+
+            const showToast = (message) => {
+                setToast(message);
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const saveToStorage = (key, data) => {
+                try {
+                    localStorage.setItem(`teacherApp_${key}`, JSON.stringify(data));
+                } catch (e) {
+                    showToast("儲存失敗，可能容量已滿");
+                }
+            };
+
+            const toggleLeaveStatus = (studentId) => {
+                const studentKey = `${selectedClass}-${studentId}`;
+                setLeaveStatus(prev => {
+                    const newStatus = { ...prev, [studentKey]: !prev[studentKey] };
+                    saveToStorage('leave', newStatus);
+                    return newStatus;
+                });
+            };
+
+            const addRecord = (studentId, type, detail, value = null) => {
+                const studentKey = `${selectedClass}-${studentId}`;
+                if (leaveStatus[studentKey]) {
+                    showToast("該學生請假中，無法登記！");
+                    return;
+                }
+
+                const newRecord = {
+                    id: Date.now().toString(),
+                    date: new Date().toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                    type,
+                    detail,
+                    value: value ? Number(value) : null
+                };
+                
+                setRecords(prev => {
+                    const updated = { ...prev };
+                    if (!updated[studentKey]) updated[studentKey] = [];
+                    updated[studentKey] = [newRecord, ...updated[studentKey]];
+                    saveToStorage('records', updated);
+                    return updated;
+                });
+                showToast(`${detail} 已登記！`);
+            };
+
+            const deleteRecord = (studentKey, recordId) => {
+                setRecords(prev => {
+                    const updated = { ...prev };
+                    updated[studentKey] = updated[studentKey].filter(r => r.id !== recordId);
+                    saveToStorage('records', updated);
+                    return updated;
+                });
+            };
+
+            const clearAllRecords = () => {
+                if (window.confirm("⚠️ 警告：這將會清空所有學生的「加扣分」與「成績」紀錄！名單與設定會保留。確定要繼續嗎？")) {
+                    setRecords({});
+                    saveToStorage('records', {});
+                    showToast("所有紀錄已成功清除！");
+                }
+            };
+
+            const addGroup = () => {
+                if (!newGroupName.trim()) return;
+                const newId = `g${Date.now()}`;
+                const updatedGroups = [...groups, { id: newId, name: newGroupName.trim() }];
+                setGroups(updatedGroups);
+                saveToStorage('groups', updatedGroups);
+                setNewGroupName('');
+                showToast(`已新增年段：${newGroupName}`);
+            };
+
+            const deleteGroup = (groupId) => {
+                if (groups.length <= 1) {
+                    alert("必須保留至少一個年段！");
+                    return;
+                }
+                if (window.confirm("刪除此年段會將其下班級轉移至其他年段，確定刪除嗎？")) {
+                    const remainingGroups = groups.filter(g => g.id !== groupId);
+                    const targetGroupId = remainingGroups[0].id; 
+                    
+                    const updatedClassGroups = { ...classGroups };
+                    Object.keys(updatedClassGroups).forEach(cls => {
+                        if (updatedClassGroups[cls] === groupId) {
+                            updatedClassGroups[cls] = targetGroupId;
+                        }
+                    });
+
+                    setGroups(remainingGroups);
+                    setClassGroups(updatedClassGroups);
+                    saveToStorage('groups', remainingGroups);
+                    saveToStorage('classGroups', updatedClassGroups);
+                    if (activeGroupId === groupId) setActiveGroupId(targetGroupId);
+                }
+            };
+
+            const addClass = () => {
+                const newClassName = prompt("請輸入新班級名稱 (例如: 901)");
+                if (newClassName && !classes[newClassName]) {
+                    const updatedClasses = { ...classes, [newClassName]: [] };
+                    const updatedClassGroups = { ...classGroups, [newClassName]: newClassGroup };
+                    
+                    setClasses(updatedClasses);
+                    setClassGroups(updatedClassGroups);
+                    saveToStorage('classes', updatedClasses);
+                    saveToStorage('classGroups', updatedClassGroups);
+                    
+                    setEditClass(newClassName);
+                    setActiveGroupId(newClassGroup);
+                    setSelectedClass(newClassName);
+                    showToast(`班級 ${newClassName} 已新增`);
+                } else if (classes[newClassName]) {
+                    alert("該班級已存在！");
+                }
+            };
+
+            const deleteClass = (className) => {
+                if (window.confirm(`確定要刪除 ${className} 班及其所有學生名單嗎？(紀錄不會被刪除)`)) {
+                    const updatedClasses = { ...classes };
+                    const updatedClassGroups = { ...classGroups };
+                    delete updatedClasses[className];
+                    delete updatedClassGroups[className];
+                    
+                    setClasses(updatedClasses);
+                    setClassGroups(updatedClassGroups);
+                    saveToStorage('classes', updatedClasses);
+                    saveToStorage('classGroups', updatedClassGroups);
+                    
+                    const remainingClasses = Object.keys(updatedClasses);
+                    if (remainingClasses.length > 0) setEditClass(remainingClasses[0]);
+                    else setEditClass('');
+                }
+            };
+
+            const addStudent = () => {
+                if (!newStudent.id || !newStudent.name || !editClass) return;
+                if (classes[editClass].some(s => s.id === newStudent.id)) {
+                    alert("座號已存在！");
+                    return;
+                }
+                const updatedClasses = { ...classes };
+                updatedClasses[editClass] = [...updatedClasses[editClass], { ...newStudent }].sort((a, b) => parseInt(a.id) - parseInt(b.id));
+                setClasses(updatedClasses);
+                saveToStorage('classes', updatedClasses);
+                setNewStudent({ id: '', name: '' });
+            };
+
+            const deleteStudent = (studentId) => {
+                const updatedClasses = { ...classes };
+                updatedClasses[editClass] = updatedClasses[editClass].filter(s => s.id !== studentId);
+                setClasses(updatedClasses);
+                saveToStorage('classes', updatedClasses);
+            };
+
+            const addNewTag = () => {
+                if (!newTag.label) return;
+                const typeKey = newTag.type;
+                const newTagObj = {
+                    id: Date.now().toString(),
+                    label: newTag.label,
+                    value: typeKey === 'positive' ? Math.abs(newTag.value) : -Math.abs(newTag.value)
+                };
+                
+                setTags(prev => {
+                    const updated = { ...prev, [typeKey]: [...prev[typeKey], newTagObj] };
+                    saveToStorage('tags', updated);
+                    return updated;
+                });
+                setNewTag({ label: '', value: 1, type: newTag.type });
+            };
+
+            const deleteTag = (type, tagId) => {
+                setTags(prev => {
+                    const updated = { ...prev, [type]: prev[type].filter(t => t.id !== tagId) };
+                    saveToStorage('tags', updated);
+                    return updated;
+                });
+            };
+
+            const startEditTag = (tag) => {
+                setEditingTagId(tag.id);
+                setEditTagInput({ label: tag.label, value: Math.abs(tag.value) });
+            };
+
+            const saveEditTag = (type, tagId) => {
+                if (!editTagInput.label.trim()) return;
+                const absVal = Math.max(1, Math.abs(Number(editTagInput.value) || 1));
+                const finalValue = type === 'positive' ? absVal : -absVal;
+
+                setTags(prev => {
+                    const updated = {
+                        ...prev,
+                        [type]: prev[type].map(t => t.id === tagId ? { ...t, label: editTagInput.label.trim(), value: finalValue } : t)
+                    };
+                    saveToStorage('tags', updated);
+                    return updated;
+                });
+                setEditingTagId(null);
+            };
+
+            const exportData = () => {
+                const backupData = { groups, classes, classGroups, tags, records, leaveStatus, exportDate: new Date().toISOString() };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+                const a = document.createElement('a');
+                a.href = dataStr;
+                a.download = `課程登記本備份_${new Date().toLocaleDateString()}.json`;
+                a.click();
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.classes && data.tags) {
+                            if(window.confirm("匯入備份將覆蓋目前所有資料，確定繼續嗎？")) {
+                                if (data.groups) setGroups(data.groups);
+                                if (data.classGroups) setClassGroups(data.classGroups);
+                                setClasses(data.classes);
+                                setTags(data.tags);
+                                if (data.records) setRecords(data.records);
+                                if (data.leaveStatus) setLeaveStatus(data.leaveStatus);
+                                
+                                saveToStorage('groups', data.groups || DEFAULT_GROUPS);
+                                saveToStorage('classes', data.classes);
+                                saveToStorage('classGroups', data.classGroups || DEFAULT_CLASS_GROUPS);
+                                saveToStorage('tags', data.tags);
+                                saveToStorage('records', data.records || {});
+                                saveToStorage('leave', data.leaveStatus || {});
+                                
+                                showToast("資料已成功還原！");
+                                setView('main');
+                            }
+                        }
+                    } catch (err) {
+                        alert("讀取檔案失敗，格式不正確。");
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const currentClassStudents = selectedClass ? (classes[selectedClass] || []) : [];
+            const filteredStudents = currentClassStudents.filter(s => 
+                s.name.includes(searchKeyword) || s.id.includes(searchKeyword)
+            );
+
+            // 定義顏色序列讓年段有不同顏色標籤
+            const colorPalette = ['bg-[#00704A]', 'bg-[#ea580c]', 'bg-blue-600', 'bg-purple-600'];
+
+            return (
+                <div className="min-h-screen p-4 md:p-6 pb-24 relative">
+                    {view === 'main' ? (
+                        <>
+                            {/* --- 頂部控制列 --- */}
+                            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-2">
+                                    <Icon name="pen-tool" className="text-[#00704A]" />
+                                    課程表現登記本
+                                </h1>
+                                
+                                <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-end">
+                                    <div className="flex bg-gray-200/80 rounded-xl p-1 shadow-inner overflow-x-auto max-w-[220px] sm:max-w-none no-scrollbar">
+                                        {groups.map((group, idx) => (
+                                            <button
+                                                key={group.id}
+                                                onClick={() => setActiveGroupId(group.id)}
+                                                className={`px-4 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap ${
+                                                    activeGroupId === group.id 
+                                                        ? `${colorPalette[idx % colorPalette.length]} text-white shadow-md transform scale-[1.02]` 
+                                                        : 'text-gray-600 hover:bg-gray-300'
+                                                }`}
+                                            >
+                                                {group.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <select
+                                        value={selectedClass}
+                                        onChange={(e) => setSelectedClass(e.target.value)}
+                                        className="text-lg py-1.5 px-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:border-[#00704A] focus:outline-none font-medium min-w-[120px]"
+                                    >
+                                        {Object.keys(classes).filter(cls => classGroups[cls] === activeGroupId).map(cls => (
+                                            <option key={cls} value={cls}>{cls} 班</option>
+                                        ))}
+                                    </select>
+                                    
+                                    <button 
+                                        onClick={() => setView('settings')}
+                                        className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2 px-3 rounded-xl shadow-sm hover:bg-gray-200 transition-colors"
+                                    >
+                                        <Icon name="settings" size={18} />
+                                        <span className="hidden md:inline">管理後台</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* --- 搜尋列 --- */}
+                            <div className="max-w-7xl mx-auto relative mb-6">
+                                <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                <input 
+                                    type="text" 
+                                    placeholder="搜尋座號或姓名..." 
+                                    value={searchKeyword}
+                                    onChange={(e) => setSearchKeyword(e.target.value)}
+                                    className="w-full bg-white border-2 border-gray-200 rounded-2xl py-3 pl-10 pr-4 focus:outline-none focus:border-[#00704A] shadow-sm transition-colors text-lg"
+                                />
+                            </div>
+
+                            {/* --- 學生列表網格區 --- */}
+                            {!selectedClass || currentClassStudents.length === 0 ? (
+                                <div className="text-center py-20 text-gray-400 bg-white rounded-3xl border border-dashed border-gray-300 max-w-7xl mx-auto">
+                                    <Icon name="users" size={48} className="mx-auto mb-4 opacity-50" />
+                                    <p className="text-lg">此年段目前沒有班級或學生資料</p>
+                                    <button onClick={() => setView('settings')} className="mt-4 text-[#00704A] font-semibold hover:underline">
+                                        前往管理後台建立名單
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-5">
+                                    {filteredStudents.map(student => {
+                                        const studentKey = `${selectedClass}-${student.id}`;
+                                        const studentRecords = records[studentKey] || [];
+                                        const isLeave = leaveStatus[studentKey] || false;
+                                        const lastRecord = studentRecords.length > 0 ? studentRecords[0] : null;
+                                        
+                                        const scoreSum = studentRecords.reduce((sum, r) => {
+                                            if (r.type === '加分' || r.type === '扣分') return sum + (r.value || 0);
+                                            return sum;
+                                        }, 0);
+
+                                        return (
+                                            <div key={student.id} className={`p-4 rounded-2xl border-b-4 shadow-sm flex flex-col relative transition-all duration-300 hover:-translate-y-1 ${
+                                                isLeave ? 'bg-blue-50 border-blue-200 border-b-blue-300' : 'bg-white border-gray-200 border-b-gray-300'
+                                            }`}>
+                                                
+                                                {scoreSum !== 0 && !isLeave && (
+                                                    <div className={`absolute -top-3 -left-2 text-white text-sm font-bold min-w-[28px] h-7 px-2 rounded-full flex items-center justify-center border-2 border-white shadow-sm ${scoreSum > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                                                        {scoreSum > 0 ? `+${scoreSum}` : scoreSum}
+                                                    </div>
+                                                )}
+
+                                                <button 
+                                                    onClick={() => toggleLeaveStatus(student.id)}
+                                                    className={`absolute top-2 right-2 p-1.5 rounded-lg transition-colors ${
+                                                        isLeave ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                                    }`}
+                                                    title="標記請假"
+                                                >
+                                                    {isLeave ? <Icon name="user-x" size={16} /> : <Icon name="user-check" size={16} />}
+                                                </button>
+
+                                                <div className={`text-xl font-bold text-center border-b pb-2 mb-2 ${isLeave ? 'text-blue-800 border-blue-200' : 'text-gray-700 border-gray-100'}`}>
+                                                    <span className="text-sm mr-1 opacity-60">{student.id}.</span>
+                                                    {student.name}
+                                                    <div className="text-xs font-normal mt-1 opacity-70 truncate h-4">
+                                                        {lastRecord ? `${lastRecord.date.substring(5,10)} ${lastRecord.detail}` : '無紀錄'}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className={`flex flex-col gap-2 mb-3 overflow-y-auto pr-1 custom-scrollbar ${isLeave ? 'opacity-40 pointer-events-none' : ''}`} style={{maxHeight: '160px'}}>
+                                                    {tags.positive.map(tag => (
+                                                        <button key={tag.id} onClick={() => addRecord(student.id, '加分', tag.label, tag.value)} className="flex items-center justify-between bg-green-50 text-green-700 border border-green-200 py-1.5 px-2 rounded-lg font-medium active:scale-95 transition-all text-sm hover:bg-green-100">
+                                                            <span className="truncate flex items-center gap-1"><Icon name="thumbs-up" size={12}/> {tag.label}</span>
+                                                            <span className="font-bold flex-shrink-0">+{tag.value}</span>
+                                                        </button>
+                                                    ))}
+                                                    {tags.negative.map(tag => (
+                                                        <button key={tag.id} onClick={() => addRecord(student.id, '扣分', tag.label, tag.value)} className="flex items-center justify-between bg-red-50 text-red-700 border border-red-200 py-1.5 px-2 rounded-lg font-medium active:scale-95 transition-all text-sm hover:bg-red-100">
+                                                            <span className="truncate flex items-center gap-1"><Icon name="thumbs-down" size={12}/> {tag.label}</span>
+                                                            <span className="font-bold flex-shrink-0">{tag.value}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100/50">
+                                                    <button onClick={() => setModal({ isOpen: true, type: 'grade', student })} disabled={isLeave} className={`flex-1 font-semibold py-1.5 rounded-lg text-sm transition-colors ${isLeave ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                                                        成績
+                                                    </button>
+                                                    <button onClick={() => setModal({ isOpen: true, type: 'history', student })} className="flex-1 bg-gray-100 text-gray-600 font-semibold py-1.5 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-gray-200 transition-colors">
+                                                        <Icon name="history" size={14} /> 紀錄
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-200 p-6 md:p-8">
+                            <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-4">
+                                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                    <Icon name="settings" className="text-gray-500" /> 系統管理後台
+                                </h2>
+                                <button onClick={() => setView('main')} className="flex items-center gap-1 text-gray-500 hover:text-gray-800 font-medium py-2 px-4 rounded-xl hover:bg-gray-100 transition-colors">
+                                    <Icon name="chevron-left" size={20} /> 返回主畫面
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <section className="bg-orange-50 p-5 rounded-2xl border border-orange-100">
+                                        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                            <Icon name="users" size={20}/> 年段分類管理
+                                        </h3>
+                                        <div className="flex gap-2 mb-4">
+                                            <input type="text" placeholder="輸入新年段" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="flex-1 p-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:border-orange-500" />
+                                            <button onClick={addGroup} className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm flex items-center gap-1">
+                                                <Icon name="plus" size={16}/> 新增
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {groups.map(g => (
+                                                <div key={g.id} className="flex items-center bg-white border border-orange-200 rounded-lg pl-3 pr-1 py-1 text-sm shadow-sm">
+                                                    <span className="font-semibold text-gray-700 mr-2">{g.name}</span>
+                                                    <button onClick={() => deleteGroup(g.id)} className="text-gray-400 hover:bg-red-50 hover:text-red-500 p-1 rounded-md transition-colors"><Icon name="x" size={14}/></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    <section className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                                        <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2 mb-4">
+                                            <Icon name="users" size={20}/> 班級名單管理
+                                        </h3>
+                                        <div className="flex gap-2 mb-4 bg-white p-2 rounded-xl border border-gray-200 shadow-sm items-center">
+                                            <select value={newClassGroup} onChange={(e) => setNewClassGroup(e.target.value)} className="p-2 border-r border-gray-200 text-sm focus:outline-none font-medium bg-transparent">
+                                                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                            </select>
+                                            <button onClick={addClass} className="flex-1 text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100 flex justify-center items-center gap-1">
+                                                <Icon name="plus" size={16}/> 建立新班級
+                                            </button>
+                                        </div>
+
+                                        {Object.keys(classes).length > 0 && (
+                                            <>
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <select value={editClass} onChange={(e) => setEditClass(e.target.value)} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium">
+                                                        {Object.keys(classes).map((cls) => {
+                                                            const gName = groups.find(g => g.id === classGroups[cls])?.name || '未知';
+                                                            return <option key={cls} value={cls}>{cls} 班 ({gName})</option>
+                                                        })}
+                                                    </select>
+                                                    <button onClick={() => deleteClass(editClass)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-lg border border-red-200 bg-white"><Icon name="trash-2" size={20} /></button>
+                                                </div>
+
+                                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                                    <div className="p-3 bg-gray-100 border-b border-gray-200 flex gap-2">
+                                                        <input type="number" placeholder="座號" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} className="w-1/4 p-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:border-blue-500" />
+                                                        <input type="text" placeholder="姓名" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && addStudent()} className="flex-1 p-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:border-blue-500" />
+                                                        <button onClick={addStudent} className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700"><Icon name="plus" size={18} /></button>
+                                                    </div>
+                                                    <ul className="max-h-[250px] overflow-y-auto custom-scrollbar divide-y divide-gray-100">
+                                                        {classes[editClass]?.map(student => (
+                                                            <li key={student.id} className="p-3 flex justify-between items-center hover:bg-gray-50 text-sm">
+                                                                <span><span className="text-gray-400 w-6 inline-block">{student.id}.</span> {student.name}</span>
+                                                                <button onClick={() => deleteStudent(student.id)} className="text-gray-400 hover:text-red-500 p-1"><Icon name="trash-2" size={16} /></button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </>
+                                        )}
+                                    </section>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <section className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                                        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                            <Icon name="pen-tool" size={20}/> 表現標籤設定
+                                        </h3>
+                                        
+                                        <div className="flex gap-2 mb-4 bg-white p-3 rounded-xl border border-gray-200">
+                                            <select value={newTag.type} onChange={e => setNewTag({...newTag, type: e.target.value})} className="w-1/4 p-2 rounded-md border border-gray-300 text-sm bg-gray-50 focus:outline-none">
+                                                <option value="positive">加分</option>
+                                                <option value="negative">扣分</option>
+                                            </select>
+                                            <input type="text" placeholder="項目" value={newTag.label} onChange={e => setNewTag({...newTag, label: e.target.value})} className="flex-1 p-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:border-blue-500" />
+                                            <input type="number" placeholder="值" value={newTag.value} min="1" onChange={e => setNewTag({...newTag, value: e.target.value})} className="w-16 p-2 rounded-md border border-gray-300 text-sm text-center focus:outline-none focus:border-blue-500" />
+                                            <button onClick={addNewTag} className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700"><Icon name="plus" size={18} /></button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-white border border-green-200 rounded-xl overflow-hidden shadow-sm">
+                                                <div className="bg-green-50 px-3 py-2 text-sm font-bold text-green-800 border-b border-green-100 flex justify-between items-center">加分項目</div>
+                                                <ul className="divide-y divide-gray-100 p-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                    {tags.positive.map(tag => (
+                                                        <li key={tag.id} className="text-sm py-1.5 px-2 flex justify-between items-center bg-green-50/50 mb-1 rounded-lg border border-green-50">
+                                                            {editingTagId === tag.id ? (
+                                                                <div className="flex-1 flex gap-1 items-center mr-1">
+                                                                    <input type="text" value={editTagInput.label} onChange={e => setEditTagInput({...editTagInput, label: e.target.value})} className="flex-1 w-full p-1 text-xs border rounded" autoFocus />
+                                                                    <input type="number" value={editTagInput.value} onChange={e => setEditTagInput({...editTagInput, value: e.target.value})} className="w-10 p-1 text-xs border rounded text-center" />
+                                                                    <button onClick={() => saveEditTag('positive', tag.id)} className="text-white bg-green-500 p-1 rounded"><Icon name="check" size={12} /></button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="truncate flex-1 text-gray-700">{tag.label} <span className="text-green-600 font-bold ml-1">+{tag.value}</span></span>
+                                                                    <div className="flex gap-1 shrink-0">
+                                                                        <button onClick={() => startEditTag(tag)} className="text-gray-400 hover:text-blue-500 p-1"><Icon name="pencil" size={14} /></button>
+                                                                        <button onClick={() => deleteTag('positive', tag.id)} className="text-gray-400 hover:text-red-500 p-1"><Icon name="x" size={14} /></button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            
+                                            <div className="bg-white border border-red-200 rounded-xl overflow-hidden shadow-sm">
+                                                <div className="bg-red-50 px-3 py-2 text-sm font-bold text-red-800 border-b border-red-100 flex justify-between items-center">扣分項目</div>
+                                                <ul className="divide-y divide-gray-100 p-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                    {tags.negative.map(tag => (
+                                                        <li key={tag.id} className="text-sm py-1.5 px-2 flex justify-between items-center bg-red-50/50 mb-1 rounded-lg border border-red-50">
+                                                            {editingTagId === tag.id ? (
+                                                                <div className="flex-1 flex gap-1 items-center mr-1">
+                                                                    <input type="text" value={editTagInput.label} onChange={e => setEditTagInput({...editTagInput, label: e.target.value})} className="flex-1 w-full p-1 text-xs border rounded" autoFocus />
+                                                                    <input type="number" value={editTagInput.value} onChange={e => setEditTagInput({...editTagInput, value: e.target.value})} className="w-10 p-1 text-xs border rounded text-center" />
+                                                                    <button onClick={() => saveEditTag('negative', tag.id)} className="text-white bg-red-500 p-1 rounded"><Icon name="check" size={12} /></button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="truncate flex-1 text-gray-700">{tag.label} <span className="text-red-600 font-bold ml-1">{tag.value}</span></span>
+                                                                    <div className="flex gap-1 shrink-0">
+                                                                        <button onClick={() => startEditTag(tag)} className="text-gray-400 hover:text-blue-500 p-1"><Icon name="pencil" size={14} /></button>
+                                                                        <button onClick={() => deleteTag('negative', tag.id)} className="text-gray-400 hover:text-red-500 p-1"><Icon name="x" size={14} /></button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                                        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                            <Icon name="save" size={20}/> 資料管理與備份
+                                        </h3>
+                                        
+                                        <div className="grid grid-cols-2 gap-3 mb-4">
+                                            <button onClick={exportData} className="flex items-center justify-center gap-2 bg-gray-800 text-white p-3 rounded-xl font-medium hover:bg-gray-900 transition-colors text-sm">
+                                                <Icon name="download" size={16}/> 下載備份 (.json)
+                                            </button>
+                                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 p-3 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm">
+                                                <Icon name="upload" size={16}/> 匯入資料
+                                                <input type="file" ref={fileInputRef} onChange={importData} accept=".json" className="hidden" />
+                                            </button>
+                                        </div>
+
+                                        <div className="border border-red-200 bg-white rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                            <div className="text-sm">
+                                                <strong className="text-red-600 block mb-1 flex items-center gap-1"><Icon name="alert-triangle" size={16}/> 清空紀錄</strong>
+                                                <span className="text-gray-500">刪除所有學生的加扣分與成績 (保留名單設定)</span>
+                                            </div>
+                                            <button onClick={clearAllRecords} className="whitespace-nowrap px-4 py-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white rounded-lg font-bold transition-colors text-sm">
+                                                一鍵清除
+                                            </button>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {modal.isOpen && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-gray-800">
+                                        {modal.student?.name} 
+                                        <span className="text-gray-500 text-base font-normal ml-2">({selectedClass}班 {modal.student?.id}號)</span>
+                                    </h2>
+                                    <button onClick={() => setModal({ isOpen: false, type: null, student: null })} className="text-gray-400 hover:text-gray-600 p-1 rounded-full">
+                                        <Icon name="x" size={24} />
+                                    </button>
+                                </div>
+
+                                {modal.type === 'grade' && (
+                                    <div className="p-6">
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">測驗項目</label>
+                                            <input type="text" value={gradeTitle} onChange={(e) => setGradeTitle(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 outline-none" />
+                                        </div>
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">分數</label>
+                                            <input type="number" value={tempGrade} onChange={(e) => setTempGrade(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 text-2xl font-bold outline-none" placeholder="100" autoFocus onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && tempGrade) {
+                                                    addRecord(modal.student.id, '成績', gradeTitle, tempGrade);
+                                                    setTempGrade('');
+                                                    setModal({ isOpen: false, type: null, student: null });
+                                                }
+                                            }} />
+                                        </div>
+                                        <button onClick={() => {
+                                            if (!tempGrade) return;
+                                            addRecord(modal.student.id, '成績', gradeTitle, tempGrade);
+                                            setTempGrade('');
+                                            setModal({ isOpen: false, type: null, student: null });
+                                        }} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">確認送出</button>
+                                    </div>
+                                )}
+
+                                {modal.type === 'history' && (
+                                    <div className="p-0 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                        {(!records[`${selectedClass}-${modal.student?.id}`] || records[`${selectedClass}-${modal.student?.id}`].length === 0) ? (
+                                            <div className="p-8 text-center text-gray-400">目前沒有任何紀錄</div>
+                                        ) : (
+                                            <ul className="divide-y divide-gray-100">
+                                                {records[`${selectedClass}-${modal.student?.id}`].map(record => (
+                                                    <li key={record.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className={`text-xs font-bold px-2 py-1 rounded-md ${record.type === '成績' ? 'bg-blue-100 text-blue-700' : record.type === '加分' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{record.type}</span>
+                                                                <span className="font-semibold text-gray-800">{record.detail}</span>
+                                                                {record.value !== null && (
+                                                                    <span className={`font-bold ml-1 ${record.type === '加分' ? 'text-green-600' : record.type === '扣分' ? 'text-red-600' : 'text-blue-600'}`}>
+                                                                        {record.type === '加分' ? '+' : ''}{record.value} {record.type === '成績' ? '分' : ''}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-xs text-gray-400">{record.date}</div>
+                                                        </div>
+                                                        <button onClick={() => deleteRecord(`${selectedClass}-${modal.student?.id}`, record.id)} className="text-gray-300 hover:text-red-500 p-2"><Icon name="trash-2" size={18} /></button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {toast && (
+                        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 transition-opacity">
+                            <Icon name="check-circle-2" size={20} className="text-green-400" />
+                            <span className="font-medium tracking-wide">{toast}</span>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
